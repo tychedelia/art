@@ -5,6 +5,11 @@ fn main() {
 }
 
 fn read_port() {
+    let ports = serialport::available_ports().expect("No ports found!");
+    for p in ports {
+        println!("{}", p.port_name);
+    }
+
     let mut port = serialport::new("COM3", 115_200)
         .timeout(Duration::from_millis(2000))
         .open().expect("Failed to open port");
