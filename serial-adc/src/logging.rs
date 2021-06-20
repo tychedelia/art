@@ -20,7 +20,7 @@ const FILTERS: &[bsp::usb::Filter] = &[
     // Try enabling this filter to only see
     // log messages from main.rs.
     //
-    // ("serial_adc", None),
+    ("serial_adc", None),
 ];
 
 /// Initialize the USB logging system, and prepares the
