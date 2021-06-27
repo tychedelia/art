@@ -110,4 +110,6 @@ Shutdown instance when done (will still be billed for disk):
 gcloud compute instances stop $(pulumi stack output instanceName) 
 ```
 
+Aliases for many of these commands are provided in the project [Makefile](./Makefile).
+
 
