@@ -71,13 +71,31 @@ gcloud compute instances list
 
 Use either `gcloud` or `ssh` to access your instance:
 ```shell
-gcloud compute ssh $YOUR_INSTANCE_NAME
+gcloud compute ssh $(pulumi stack output instanceName) 
 # or
 ssh $YOUR_SSH_PUB_USER@$(pulumi stack output instanceIP)
 ```
 
 ## Install required dependencies
 
+The directory [startup-scripts](./setup-scripts) has steps for installing the dependencies necessary for running
+stylegan2 training. Additional packages may be needed as necessary.
 
+## Workflow
+
+Make sure your instance is started:
+```shell
+gcloud compute instances start $(pulumi stack output instanceName) 
+```
+
+SSH in and do some work:
+```shell
+gcloud compute ssh $(pulumi stack output instanceName) 
+```
+
+Shutdown instance when done (will still be billed for disk):
+```shell
+gcloud compute instances stop $(pulumi stack output instanceName) 
+```
 
 

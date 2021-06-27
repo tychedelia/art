@@ -1,14 +1,18 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
-import * as fs from "fs";
 
 const zone = "us-east1-b"
 const region = "us-east1"
 
+// allocate a public ipv4 address in our region
 const addr = new gcp.compute.Address("addr", {
     region,
 });
+
+// create a new virtual network for our vm
 const network = new gcp.compute.Network("network");
+
+// attach network to firewall to ensure only ssh is exposed to internet
 const firewall = new gcp.compute.Firewall("firewall", {
     network: network.id,
     allows: [{
@@ -18,31 +22,38 @@ const firewall = new gcp.compute.Firewall("firewall", {
 });
 
 // our boot disk for the compute instance
-// TODO: attach additional disk so that model can survive instance getting killed for maintenance
 const disk = new gcp.compute.Disk("disk", {
     // specified in GB
-    size: 200,
+    size: 1000,
+    // what distro is imaged onto the disk for startup
     image: "ubuntu-os-cloud/ubuntu-1804-lts",
+    // disks are network attached and should live in same zone
     zone,
 })
 
-const metadataStartupScript = fs.readFileSync("setup.sh", "utf-8")
+// our main vm for doing work
 const vm = new gcp.compute.Instance("vm", {
+    // what disk we boot from
     bootDisk: {
         source: disk.id
     },
+    // where this machine lives
     zone,
-    machineType: "n1-standard-1",
+    // this machine is probably a little over-provisioned, but we run into issues with only 1 core
+    machineType: "n1-standard-4",
+    // attach our machine to the vlan
     networkInterfaces: [{
         network: network.id,
         accessConfigs: [{
             natIp: addr.address
         }],
     }],
+    // this is the GPU
     guestAccelerators: [{
         count: 1,
         type: "nvidia-tesla-p100",
     }],
+    // tags for this vm
     metadata: {
         // allow use of project wide ssh keys to access this instance
         "block-project-ssh-keys": "FALSE",
@@ -51,8 +62,8 @@ const vm = new gcp.compute.Instance("vm", {
     scheduling: {
         onHostMaintenance: "TERMINATE"
     },
-    // setup.sh
-    metadataStartupScript,
+    // kill our instance if we want to resize
+    allowStoppingForUpdate: true,
 });
 
 export const instanceName = vm.name;
