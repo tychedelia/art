@@ -9,13 +9,15 @@ compute instances lying around, the ability to repeatedly build infrastructure i
 ## Required accounts
 
 First, sign up for a [new Pulumi account](https://app.pulumi.com). Pulumi is free to use for individual projects.
-Pulumi stores the state of our infrastructure (i.e. what resources have been created), and uses a diffing engine
+Pulumi stores the state of your infrastructure (i.e. what resources have been created), and uses a diffing engine
 in order to determine what needs to be created/updated when run. You don't need to visit the Pulumi site when using
 their CLI, but it can be helpful to recall the history of actions taken on  your project.
 
 Next, sign up for [GCP](https://console.cloud.google.com/). You'll need to create some billing details. You'll also
 [need to create a project](https://cloud.google.com/resource-manager/docs/creating-managing-projects) 
-that will contain all our resources. You can name this whatever you want.
+that will contain all your resources. You can name this whatever you want.
+
+### A note on billing and budgets
 
 When working with cloud providers as an individual, it can be helpful to create billing limits in order to prevent
 accidental cost overrun. While providers are used to people accidentally running up a bill that needs to be written off,
@@ -24,9 +26,15 @@ a global budget for all of your projects. It's important to remember that his bu
 your usage. Billing on most cloud providers is computed asynchronously, so it's possible to overrun your budget by a 
 bit. If you need a hard limit on your budget, set it a little lower to be safe and be sure to configure copious alerts.
 
+### Quotas
+
 You'll also likely need to increase the global GPU quota for your account, which is set to 0 by default. This can be
 done by going to IAM & Admin > Quotas. Filter for "GPU" and select the quota named "GPUs (all regions)" and click edit
 quotas. Increase the quota to one and provide a brief description of what your intended use is.
+This request may be approved automatically, or may take a day or two to be reviewed.
+
+
+### SSH
 
 There are several ways to manage accessing created resources. I use SSH, which requires [adding a project wide ssh
 public key](https://console.cloud.google.com/compute/metadata/sshKeys?project=stylegan2-318014&folder&organizationId). 
@@ -37,19 +45,27 @@ this name in your VM. If you don't have an existing SSH key, follow the steps pr
 
 ## Project dependencies (Windows)
 
-Install the following tools using [Scoop](https://scoop.sh/):
+[Scoop](https://scoop.sh/) is a helpful package manager that provides a common interface for installing
+and updating common tools and runtimes. Install the following tools using `scoop`:
 
 ```shell
 scoop install gcloud pulumi nodejs openssh
 ```
 
+### GCP credentials
+
 Once `gcloud` is installed, you'll need to run `gcloud init` and `gcloud auth application-default login`. Credentials
 can also be managed by providing a raw credential string to Pulumi, but it's easier to let the `gcloud` CLI manage 
 authentication  for us. Using credentials as secrets can be helpful if you want to set up automated deployments on GitHub,
-which isn't necessary for most art projects. Additionally, we're not using a service account, which is generally a
-best practice to isolate permissions from our main admin account. That way, if a service account is compromised,
-the damage is only limited to whatever permissions the service account has. If you end up creating many projects,
+which isn't necessary for most art projects. 
+
+Additionally, we're not using a service account, which is generally a
+cloud best practice to isolate permissions from our main admin account. That way, if a service account is compromised,
+the damage is only limited to whatever permissions the service account has. We're okay taking this risk
+because none of our data is sensitive. If you end up creating many projects,
 you may want to explore using a service account.
+
+## Pulumi project
 
 Next, create a new project using `pulumi`. This should be run inside the folder you're intending to use:
 
@@ -61,7 +77,11 @@ This will use the `gcp-typescript` template to create a new project from the tem
 ask you what gcp project you want to use. Provide the unique project ID from the cloud console rather than just the
 project name.
 
-## Create the stack
+TypeScript will add additional checks when running your project that ensures that there are no typos
+and that all the code is capable of being compiled before run. If this ends up annoying you, Pulumi
+also provides a regular JavaScript template, as well as templates in a few other languages.
+
+### Create the stack
 
 Next, run Pulumi in order to create [our new stack as defined in index.ts](./index.ts):
 
