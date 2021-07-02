@@ -19,7 +19,7 @@ gcloud-start:
 
 .PHONY: gcloud-stop
 gcloud-stop:
-	gcloud compute instances start $(instance_name)
+	gcloud compute instances stop $(instance_name)
 
 .PHONY: gcloud-scp-push
 gcloud-scp-push:

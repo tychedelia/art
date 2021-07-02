@@ -1,8 +1,20 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
 
-const zone = "us-east1-b"
-const region = "us-east1"
+const zones = [
+	"us-central1-c", 
+	"us-central1-f",
+       	"us-east1-b",
+	"us-east1-c",
+	"us-west1-a",
+	"us-west1-b",
+];
+
+//const region = "us-central1" 
+//const zone = `${region}-f` 
+
+const zone = process.env["zone"] || zones[0] 
+const region = `${zone.split('-')[0]}-${zone.split('-')[1]}`
 
 // allocate a public ipv4 address in our region
 const addr = new gcp.compute.Address("addr", {
@@ -26,7 +38,7 @@ const disk = new gcp.compute.Disk("disk", {
     // specified in GB
     size: 1000,
     // what distro is imaged onto the disk for startup
-    image: "ubuntu-os-cloud/ubuntu-1804-lts",
+    image: "stylegan-image", // our custom image
     // disks are network attached and should live in same zone
     zone,
 })
@@ -67,4 +79,4 @@ const vm = new gcp.compute.Instance("vm", {
 });
 
 export const instanceName = vm.name;
-export const instanceIP = addr.address
+export const instanceIP = addr.address;

@@ -1,0 +1,8 @@
+[Unit]
+Description=Training routine for stylegan2
+
+[Service]
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/home/jem/stylegan2-ada-pytorch/.env
+WorkingDirectory=/home/jem/stylegan2-ada-pytorch
+ExecStart=/home/jem/miniconda3/envs/py39/bin/python train.py --outdir=${OUTDIR} --data=${DATA} --gpus=1 --snap=${SNAP} --metrics=none --mirror=${MIRROR} --mirrory=${MIRRORY} --resume=${RESUME}
