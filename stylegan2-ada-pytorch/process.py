@@ -7,19 +7,20 @@
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
 """Generate images using pretrained network pickle."""
-
+import math
 import os
 import subprocess
 import re
 from typing import List, Optional
 
-import click
 import dnnlib
 import numpy as np
 from numpy import linalg
 import PIL.Image
 import torch
-
+from queue import Queue
+from threading import Thread
+import random
 import legacy
 
 from opensimplex import OpenSimplex
@@ -422,13 +423,17 @@ def generate_images(
         # Generate images.
         for seed_idx, seed in enumerate(seeds):
             print('Generating image for seed %d (%d/%d) ...' % (seed, seed_idx, len(seeds)))
-            x_v = 105
-            y_v = 17
-            z_v = 231
+            x_v = 65
+            y_v = 126
+            z_v = 159
 
-            print(f'gen {y_v}-{x_v}')
+            # print(f'gen {y_v}-{x_v}')
             steps = 25
-            scaling_factor = 1.15
+            # steps = 5
+
+            # 25 -> 1.15
+            scaling_factor = 1.3
+            # scaling_factor = 5
 
             im = PIL.Image.new('RGB', (1024 * steps, 1024 * steps))
             x_offset = 0
@@ -437,25 +442,32 @@ def generate_images(
             dirpath = os.path.join(outdir, f'frames-s{seed}-x{x_v}-y{y_v}-z{z_v}')
             os.makedirs(dirpath, exist_ok=True)
 
+            queue = Queue()
+            for x in range(os.cpu_count() - 1):
+                worker = ImageSaver(queue)
+                worker.daemon = True
+                worker.start()
             idx = 0
             for y in range(steps):
                 for x in range(steps):
                     for z in range(steps):
-                        idx += 1
-                        print(idx)
-
                         t = torch.from_numpy(np.random.RandomState(seed).randn(1, G.z_dim)).to(device)
-                        t[0][y_v] *= pow(scaling_factor, y)
-                        t[0][x_v] *= pow(scaling_factor, x)
+
+                        t[0][x_v] *= pow(scaling_factor, y)
+                        t[0][y_v] *= pow(scaling_factor, x)
                         t[0][z_v] *= pow(scaling_factor, z)
-                        # y_offset = y * 1024
-                        # x_offset = x * 1024
+                        t[0][x_v * 2] *= pow(scaling_factor, y)
+                        t[0][y_v * 2] *= pow(scaling_factor, x)
+                        t[0][z_v * 2] *= pow(scaling_factor, z)
+                        idx += 1
+                        print(idx / pow(steps, 3))
                         img = G(t, label, truncation_psi=truncation_psi, noise_mode=noise_mode)
                         img = (img.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
                         i = PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB')
                         # im.paste(i, (x_offset, y_offset))
-                        i.save(f'{outdir}/frames-s{seed}-x{x_v}-y{y_v}-z{z_v}/{x}-{y}-{z}.png')
+                        queue.put((i, f'{outdir}/frames-s{seed}-x{x_v}-y{y_v}-z{z_v}/{x}-{y}-{z}.png'))
 
+            queue.join()
             # im.save(f'{outdir}/v-{seed}-x{x_v}-y{y_v}-z{z_v}.jpg')
 
             # v_range = 20
@@ -519,10 +531,22 @@ def generate_images(
         cmd = f'ffmpeg -y -r {fps} -i {dirpath}/frame%04d.png -vcodec libx264 -pix_fmt yuv420p {outdir}/{vidname}.mp4'
         subprocess.call(cmd, shell=True)
 
+class ImageSaver(Thread):
+
+    def __init__(self, queue):
+        Thread.__init__(self)
+        self.queue = queue
+
+    def run(self):
+        while True:
+            img, target = self.queue.get()
+            img.save(target)
+            self.queue.task_done()
+
 
 # ----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    generate_images(outdir="out/test", process="image", seeds=[240], network_pkl="C:\\Users\\James\\art3.pkl", truncation_psi=1)  # pylint: disable=no-value-for-parameter
+    generate_images(outdir="out/test", process="image", seeds=[159], network_pkl="C:\\Users\\James\\art3.pkl", truncation_psi=1)  # pylint: disable=no-value-for-parameter
 
 # ----------------------------------------------------------------------------
