@@ -15,8 +15,11 @@ from typing import List, Optional, Tuple, Union
 import click
 import dnnlib
 import numpy as np
+import random
 import PIL.Image
 import torch
+from queue import Queue
+from threading import Thread
 
 import legacy
 
@@ -74,7 +77,7 @@ def generate_images(
     outdir: str,
     truncation_psi: float =1,
     noise_mode: str = 'const',
-    translate: Tuple[float,float] = 0.0,
+    translate: Tuple[float,float] = (0, 0),
     rotate: float = True,
     class_idx: Optional[int] = None
 ):
@@ -124,17 +127,17 @@ def generate_images(
             G.synthesis.input.transform.copy_(torch.from_numpy(m))
 
         print('Generating image for seed %d (%d/%d) ...' % (seed, seed_idx, len(seeds)))
-        x_v = 65
-        y_v = 126
-        z_v = 159
+        x_v = random.randint(0, 200)
+        y_v = random.randint(0, 200)
+        z_v = random.randint(0, 200)
 
         # print(f'gen {y_v}-{x_v}')
-        steps = 25
-        # steps = 5
+#         steps = 25
+        steps = 5
 
         # 25 -> 1.15
-        scaling_factor = 1.3
-        # scaling_factor = 5
+#         scaling_factor = 1.3
+        scaling_factor = 5
 
         im = PIL.Image.new('RGB', (1024 * steps, 1024 * steps))
         x_offset = 0
@@ -186,6 +189,5 @@ class ImageSaver(Thread):
 #----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    generate_images() # pylint: disable=no-value-for-parameter
-
+    generate_images(outdir="out/test", seeds=[10,20,30], network_pkl="/home/jem/training-runs/00012-stylegan3-r-art_dataset-gpus1-batch4-gamma8.2/network-snapshot-000016.pkl", truncation_psi=1)  # pylint: disable=no-value-for-parameter
 #----------------------------------------------------------------------------

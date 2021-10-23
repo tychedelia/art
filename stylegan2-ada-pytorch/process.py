@@ -531,18 +531,6 @@ def generate_images(
         cmd = f'ffmpeg -y -r {fps} -i {dirpath}/frame%04d.png -vcodec libx264 -pix_fmt yuv420p {outdir}/{vidname}.mp4'
         subprocess.call(cmd, shell=True)
 
-class ImageSaver(Thread):
-
-    def __init__(self, queue):
-        Thread.__init__(self)
-        self.queue = queue
-
-    def run(self):
-        while True:
-            img, target = self.queue.get()
-            img.save(target)
-            self.queue.task_done()
-
 
 # ----------------------------------------------------------------------------
 
