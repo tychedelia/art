@@ -38,7 +38,7 @@ const disk = new gcp.compute.Disk("disk", {
     // specified in GB
     size: 1000,
     // what distro is imaged onto the disk for startup
-    image: "stylegan-image", // our custom image
+    image: "stylegan3", // our custom image
     // disks are network attached and should live in same zone
     zone,
 })
