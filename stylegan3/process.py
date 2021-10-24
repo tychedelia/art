@@ -20,7 +20,7 @@ import PIL.Image
 import torch
 from queue import Queue
 from threading import Thread
-
+import os.path
 import legacy
 
 #----------------------------------------------------------------------------
@@ -130,14 +130,18 @@ def generate_images(
         x_v = random.randint(0, 200)
         y_v = random.randint(0, 200)
         z_v = random.randint(0, 200)
+#         x_v = 133
+#         y_v = 163
+#         z_v = 3
+
 
         # print(f'gen {y_v}-{x_v}')
-#         steps = 25
-        steps = 5
+        steps = 25
+#         steps = 5
 
         # 25 -> 1.15
-#         scaling_factor = 1.3
-        scaling_factor = 5
+        scaling_factor = 1.3
+#         scaling_factor = 5
 
         im = PIL.Image.new('RGB', (1024 * steps, 1024 * steps))
         x_offset = 0
@@ -147,7 +151,7 @@ def generate_images(
         os.makedirs(dirpath, exist_ok=True)
 
         queue = Queue()
-        for x in range(os.cpu_count() - 1):
+        for x in range(os.cpu_count() * 2 - 1):
             worker = ImageSaver(queue)
             worker.daemon = True
             worker.start()
@@ -155,21 +159,23 @@ def generate_images(
         for y in range(steps):
             for x in range(steps):
                 for z in range(steps):
-                    t = torch.from_numpy(np.random.RandomState(seed).randn(1, G.z_dim)).to(device)
+                    fname = f'{outdir}/frames-s{seed}-x{x_v}-y{y_v}-z{z_v}/{x}-{y}-{z}.png'
+                    if not os.path.exists(fname):
+                        t = torch.from_numpy(np.random.RandomState(seed).randn(1, G.z_dim)).to(device)
+                        t[0][x_v] *= pow(scaling_factor, y)
+                        t[0][y_v] *= pow(scaling_factor, x)
+                        t[0][z_v] *= pow(scaling_factor, z)
+                        t[0][x_v * 2] *= pow(scaling_factor, y)
+                        t[0][y_v * 2] *= pow(scaling_factor, x)
+                        t[0][z_v * 2] *= pow(scaling_factor, z)
+                        img = G(t, label, truncation_psi=truncation_psi, noise_mode=noise_mode)
+                        img = (img.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
+                        i = PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB')
+                        # im.paste(i, (x_offset, y_offset))
 
-                    t[0][x_v] *= pow(scaling_factor, y)
-                    t[0][y_v] *= pow(scaling_factor, x)
-                    t[0][z_v] *= pow(scaling_factor, z)
-                    t[0][x_v * 2] *= pow(scaling_factor, y)
-                    t[0][y_v * 2] *= pow(scaling_factor, x)
-                    t[0][z_v * 2] *= pow(scaling_factor, z)
+                        queue.put((i, fname))
                     idx += 1
                     print(idx / pow(steps, 3))
-                    img = G(t, label, truncation_psi=truncation_psi, noise_mode=noise_mode)
-                    img = (img.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
-                    i = PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB')
-                    # im.paste(i, (x_offset, y_offset))
-                    queue.put((i, f'{outdir}/frames-s{seed}-x{x_v}-y{y_v}-z{z_v}/{x}-{y}-{z}.png'))
 
 
 
@@ -189,5 +195,5 @@ class ImageSaver(Thread):
 #----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    generate_images(outdir="out/test", seeds=[10,20,30], network_pkl="/home/jem/training-runs/00012-stylegan3-r-art_dataset-gpus1-batch4-gamma8.2/network-snapshot-000016.pkl", truncation_psi=1)  # pylint: disable=no-value-for-parameter
+    generate_images(outdir="out/test", seeds=[random.randint(0, 255),random.randint(0, 255),random.randint(0, 255)], network_pkl="/home/jem/sg3-art.pkl", truncation_psi=1)  # pylint: disable=no-value-for-parameter
 #----------------------------------------------------------------------------
