@@ -25,6 +25,17 @@ import legacy
 
 from opensimplex import OpenSimplex
 
+class ImageSaver(Thread):
+
+    def __init__(self, queue):
+        Thread.__init__(self)
+        self.queue = queue
+
+    def run(self):
+        while True:
+            img, target = self.queue.get()
+            img.save(target)
+            self.queue.task_done()
 
 # ---------------------------------------------------------------------------
 
@@ -423,9 +434,9 @@ def generate_images(
         # Generate images.
         for seed_idx, seed in enumerate(seeds):
             print('Generating image for seed %d (%d/%d) ...' % (seed, seed_idx, len(seeds)))
-            x_v = 65
+            x_v =   65 # random.randint(0, 155) #
             y_v = 126
-            z_v = 159
+            z_v =  159
 
             # print(f'gen {y_v}-{x_v}')
             steps = 25
@@ -534,7 +545,75 @@ def generate_images(
 
 # ----------------------------------------------------------------------------
 
+networks = {
+    "art3": "C:\\Users\\James\\art3.pkl",
+    "art2": "\\\\wsl.localhost\\Arch\home\\jem\\training-runs\\training-runs\\00007-art_dataset-mirror-mirrory-auto1-resumecustom\\network-snapshot-000040.pkl",
+    "art": "\\\\wsl.localhost\\Arch\home\\jem\\training-runs\\training-runs\\00007-art_dataset-mirror-mirrory-auto1-resumecustom\\network-snapshot-000040.pkl",
+}
+
+
+def init_device(
+
+):
+
+    network_pkl = networks["art3"]
+    scale_type = "pad"
+    size = None,
+    noise_mode = "const"
+    class_idx = None
+    projected_w = None
+
+
+    G_kwargs = dnnlib.EasyDict()
+    G_kwargs.size = size
+    G_kwargs.scale_type = scale_type
+
+    # mask/blend latents with external latmask or by splitting the frame
+    latmask = False  # temp
+    if latmask is None:
+        nHW = [int(s) for s in a.nXY.split('-')][::-1]
+        assert len(nHW) == 2, ' Wrong count nXY: %d (must be 2)' % len(nHW)
+        n_mult = nHW[0] * nHW[1]
+        # if a.verbose is True and n_mult > 1: print(' Latent blending w/split frame %d x %d' % (nHW[1], nHW[0]))
+        lmask = np.tile(np.asarray([[[[1]]]]), (1, n_mult, 1, 1))
+        Gs_kwargs.countHW = nHW
+        Gs_kwargs.splitfine = a.splitfine
+        lmask = torch.from_numpy(lmask).to(device)
+
+    print('Loading networks from "%s"...' % network_pkl)
+    device = torch.device('cuda')
+    with dnnlib.util.open_url(network_pkl) as f:
+        # G = legacy.load_network_pkl(f)['G_ema'].to(device) # type: ignore
+        G = legacy.load_network_pkl(f, custom=False, **G_kwargs)['G_ema'].to(device)  # type: ignore
+
+    # Synthesize the result of a W projection.
+    if projected_w is not None:
+        if seeds is not None:
+            print('Warning: --seeds is ignored when using --projected-w')
+        print(f'Generating images from projected W "{projected_w}"')
+        ws = np.load(projected_w)['w']
+        ws = torch.tensor(ws, device=device)  # pylint: disable=not-callable
+        assert ws.shape[1:] == (G.num_ws, G.w_dim)
+        for idx, w in enumerate(ws):
+            img = G.synthesis(w.unsqueeze(0), noise_mode=noise_mode)
+            img = (img.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
+            img = PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir}/proj{idx:02d}.png')
+        return
+
+    # Labels.
+    label = torch.zeros([1, G.c_dim], device=device)
+    if G.c_dim != 0:
+        if class_idx is None:
+            print('Must specify class label with --class when using a conditional network')
+            exit(1)
+        label[:, class_idx] = 1
+    else:
+        if class_idx is not None:
+            print('warn: --class=lbl ignored when running on an unconditional network')
+
+    return (G, device, label)
+
 if __name__ == "__main__":
-    generate_images(outdir="out/test", process="image", seeds=[159], network_pkl="C:\\Users\\James\\art3.pkl", truncation_psi=1)  # pylint: disable=no-value-for-parameter
+    generate_images(outdir="out/test7", process="image", seeds=[159, 456], network_pkl=networks["art"], truncation_psi=1)  # pylint: disable=no-value-for-parameter
 
 # ----------------------------------------------------------------------------
